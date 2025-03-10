@@ -7,7 +7,7 @@ import os
 import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import BrowseInteractiveAction
@@ -133,7 +133,7 @@ def parse_content_to_elements(content: str) -> Dict[str, str]:
     return elements
 
 
-def find_matching_anchor(content: str, selector: str) -> Optional[str]:
+def find_matching_anchor(content: str, selector: str) -> str | None:
     """Find the anchor ID that matches the given selector description"""
     elements = parse_content_to_elements(content)
 
@@ -262,12 +262,14 @@ def pre_login(
             instruction = action.to_instruction()
 
             browser_action = BrowseInteractiveAction(browser_actions=instruction)
-            browser_action.timeout = 10000
+            browser_action.set_hard_timeout(10000)
             logger.info(browser_action, extra={'msg_type': 'ACTION'})
             obs: BrowserOutputObservation = runtime.run_action(browser_action)
             logger.debug(obs, extra={'msg_type': 'OBSERVATION'})
             if save_screenshots:
-                image_data = base64.b64decode(obs.screenshot)
+                image_data = base64.b64decode(
+                    obs.screenshot.replace('data:image/png;base64,', '')
+                )
                 with open(os.path.join(directory, f'{image_id}.png'), 'wb') as file:
                     file.write(image_data)
                     image_id += 1

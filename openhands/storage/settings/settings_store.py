@@ -16,10 +16,12 @@ class SettingsStore(ABC):
         """Load session init data"""
 
     @abstractmethod
-    async def store(self, settings: Settings):
+    async def store(self, settings: Settings) -> None:
         """Store session init data"""
 
     @classmethod
     @abstractmethod
-    async def get_instance(cls, config: AppConfig, user_id: int) -> SettingsStore:
+    async def get_instance(
+        cls, config: AppConfig, user_id: str | None
+    ) -> SettingsStore:
         """Get a store for the user represented by the token given"""

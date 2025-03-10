@@ -3,7 +3,6 @@ import tempfile
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     HTTPException,
     Request,
     UploadFile,
@@ -12,6 +11,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, JSONResponse
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
+from starlette.background import BackgroundTask
 
 from openhands.core.exceptions import AgentRuntimeUnavailableError
 from openhands.core.logger import openhands_logger as logger
@@ -68,7 +68,7 @@ async def list_files(request: Request, conversation_id: str, path: str | None = 
     try:
         file_list = await call_sync_from_async(runtime.list_files, path)
     except AgentRuntimeUnavailableError as e:
-        logger.error(f'Error listing files: {e}', exc_info=True)
+        logger.error(f'Error listing files: {e}')
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': f'Error listing files: {e}'},
@@ -95,7 +95,7 @@ async def list_files(request: Request, conversation_id: str, path: str | None = 
     try:
         file_list = await filter_for_gitignore(file_list, '')
     except AgentRuntimeUnavailableError as e:
-        logger.error(f'Error filtering files: {e}', exc_info=True)
+        logger.error(f'Error filtering files: {e}')
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': f'Error filtering files: {e}'},
@@ -131,7 +131,7 @@ async def select_file(file: str, request: Request):
     try:
         observation = await call_sync_from_async(runtime.run_action, read_action)
     except AgentRuntimeUnavailableError as e:
-        logger.error(f'Error opening file {file}: {e}', exc_info=True)
+        logger.error(f'Error opening file {file}: {e}')
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': f'Error opening file: {e}'},
@@ -141,7 +141,7 @@ async def select_file(file: str, request: Request):
         content = observation.content
         return {'code': content}
     elif isinstance(observation, ErrorObservation):
-        logger.error(f'Error opening file {file}: {observation}', exc_info=False)
+        logger.error(f'Error opening file {file}: {observation}')
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={'error': f'Error opening file: {observation}'},
@@ -207,9 +207,7 @@ async def upload_file(request: Request, conversation_id: str, files: list[Upload
                         runtime.config.workspace_mount_path_in_sandbox,
                     )
                 except AgentRuntimeUnavailableError as e:
-                    logger.error(
-                        f'Error saving file {safe_filename}: {e}', exc_info=True
-                    )
+                    logger.error(f'Error saving file {safe_filename}: {e}')
                     return JSONResponse(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         content={'error': f'Error saving file: {e}'},
@@ -234,7 +232,7 @@ async def upload_file(request: Request, conversation_id: str, files: list[Upload
         return JSONResponse(status_code=status.HTTP_200_OK, content=response_content)
 
     except Exception as e:
-        logger.error(f'Error during file upload: {e}', exc_info=True)
+        logger.error(f'Error during file upload: {e}')
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -284,7 +282,7 @@ async def save_file(request: Request):
         try:
             observation = await call_sync_from_async(runtime.run_action, write_action)
         except AgentRuntimeUnavailableError as e:
-            logger.error(f'Error saving file: {e}', exc_info=True)
+            logger.error(f'Error saving file: {e}')
             return JSONResponse(
                 status_code=500,
                 content={'error': f'Error saving file: {e}'},
@@ -306,38 +304,32 @@ async def save_file(request: Request):
             )
     except Exception as e:
         # Log the error and return a 500 response
-        logger.error(f'Error saving file: {e}', exc_info=True)
+        logger.error(f'Error saving file: {e}')
         raise HTTPException(status_code=500, detail=f'Error saving file: {e}')
 
 
 @app.get('/zip-directory')
-async def zip_current_workspace(
-    request: Request, conversation_id: str, background_tasks: BackgroundTasks
-):
+def zip_current_workspace(request: Request, conversation_id: str):
     try:
         logger.debug('Zipping workspace')
         runtime: Runtime = request.state.conversation.runtime
         path = runtime.config.workspace_mount_path_in_sandbox
         try:
-            zip_file = await call_sync_from_async(runtime.copy_from, path)
+            zip_file_path = runtime.copy_from(path)
         except AgentRuntimeUnavailableError as e:
-            logger.error(f'Error zipping workspace: {e}', exc_info=True)
+            logger.error(f'Error zipping workspace: {e}')
             return JSONResponse(
                 status_code=500,
                 content={'error': f'Error zipping workspace: {e}'},
             )
-        response = FileResponse(
-            path=zip_file,
+        return FileResponse(
+            path=zip_file_path,
             filename='workspace.zip',
-            media_type='application/x-zip-compressed',
+            media_type='application/zip',
+            background=BackgroundTask(lambda: os.unlink(zip_file_path)),
         )
-
-        # This will execute after the response is sent (So the file is not deleted before being sent)
-        background_tasks.add_task(zip_file.unlink)
-
-        return response
     except Exception as e:
-        logger.error(f'Error zipping workspace: {e}', exc_info=True)
+        logger.error(f'Error zipping workspace: {e}')
         raise HTTPException(
             status_code=500,
             detail='Failed to zip workspace',

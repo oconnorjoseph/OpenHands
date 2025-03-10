@@ -1,16 +1,16 @@
-import { useDisclosure } from "@nextui-org/react";
+import { useDisclosure } from "@heroui/react";
 import React from "react";
 import { Outlet } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import { FaServer } from "react-icons/fa";
-import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { I18nKey } from "#/i18n/declaration";
 import {
   ConversationProvider,
   useConversation,
 } from "#/context/conversation-context";
 import { Controls } from "#/components/features/controls/controls";
-import { RootState } from "#/store";
-import { clearMessages } from "#/state/chat-slice";
+import { clearMessages, addUserMessage } from "#/state/chat-slice";
 import { clearTerminal } from "#/state/command-slice";
 import { useEffectOnce } from "#/hooks/use-effect-once";
 import CodeIcon from "#/icons/code.svg?react";
@@ -21,7 +21,6 @@ import { FilesProvider } from "#/context/files";
 import { ChatInterface } from "../../components/features/chat/chat-interface";
 import { WsClientProvider } from "#/context/ws-client-provider";
 import { EventHandler } from "./event-handler";
-import { useAuth } from "#/context/auth-context";
 import { useConversationConfig } from "#/hooks/query/use-conversation-config";
 import { Container } from "#/components/layout/container";
 import {
@@ -31,29 +30,33 @@ import {
 import Security from "#/components/shared/modals/security/security";
 import { useEndSession } from "#/hooks/use-end-session";
 import { useUserConversation } from "#/hooks/query/use-user-conversation";
-import { CountBadge } from "#/components/layout/count-badge";
 import { ServedAppLabel } from "#/components/layout/served-app-label";
 import { TerminalStatusLabel } from "#/components/features/terminal/terminal-status-label";
 import { useSettings } from "#/hooks/query/use-settings";
-import { MULTI_CONVERSATION_UI } from "#/utils/feature-flags";
+import { clearFiles, clearInitialPrompt } from "#/state/initial-query-slice";
+import { RootState } from "#/store";
+import { displayErrorToast } from "#/utils/custom-toast-handlers";
 
 function AppContent() {
   useConversationConfig();
-  const { gitHubToken } = useAuth();
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const { conversationId } = useConversation();
   const { data: conversation, isFetched } = useUserConversation(
     conversationId || null,
   );
+  const { initialPrompt, files } = useSelector(
+    (state: RootState) => state.initialQuery,
+  );
   const dispatch = useDispatch();
   const endSession = useEndSession();
 
   const [width, setWidth] = React.useState(window.innerWidth);
-  const { updateCount } = useSelector((state: RootState) => state.browser);
 
   const secrets = React.useMemo(
-    () => [gitHubToken].filter((secret) => secret !== null),
-    [gitHubToken],
+    // secrets to filter go here
+    () => [].filter((secret) => secret !== null),
+    [],
   );
 
   const Terminal = React.useMemo(
@@ -62,8 +65,8 @@ function AppContent() {
   );
 
   React.useEffect(() => {
-    if (MULTI_CONVERSATION_UI && isFetched && !conversation) {
-      toast.error(
+    if (isFetched && !conversation) {
+      displayErrorToast(
         "This conversation does not exist, or you do not have permission to access it.",
       );
       endSession();
@@ -74,6 +77,18 @@ function AppContent() {
     dispatch(clearMessages());
     dispatch(clearTerminal());
     dispatch(clearJupyter());
+    if (conversationId && (initialPrompt || files.length > 0)) {
+      dispatch(
+        addUserMessage({
+          content: initialPrompt || "",
+          imageUrls: files || [],
+          timestamp: new Date().toISOString(),
+          pending: true,
+        }),
+      );
+      dispatch(clearInitialPrompt());
+      dispatch(clearFiles());
+    }
   }, [conversationId]);
 
   useEffectOnce(() => {
@@ -112,7 +127,7 @@ function AppContent() {
         orientation={Orientation.HORIZONTAL}
         className="grow h-full min-h-0 min-w-0"
         initialSize={500}
-        firstClassName="rounded-xl overflow-hidden border border-neutral-600 bg-neutral-800"
+        firstClassName="rounded-xl overflow-hidden border border-neutral-600 bg-base-secondary"
         secondClassName="flex flex-col overflow-hidden"
         firstChild={<ChatInterface />}
         secondChild={
@@ -126,7 +141,11 @@ function AppContent() {
               <Container
                 className="h-full"
                 labels={[
-                  { label: "Workspace", to: "", icon: <CodeIcon /> },
+                  {
+                    label: t(I18nKey.WORKSPACE$TITLE),
+                    to: "",
+                    icon: <CodeIcon />,
+                  },
                   { label: "Jupyter", to: "jupyter", icon: <ListIcon /> },
                   {
                     label: <ServedAppLabel />,
@@ -136,8 +155,7 @@ function AppContent() {
                   {
                     label: (
                       <div className="flex items-center gap-1">
-                        Browser
-                        {updateCount > 0 && <CountBadge count={updateCount} />}
+                        {t(I18nKey.BROWSER$TITLE)}
                       </div>
                     ),
                     to: "browser",

@@ -23,14 +23,13 @@ export function TaskForm({ ref }: TaskFormProps) {
   const dispatch = useDispatch();
   const navigation = useNavigation();
 
-  const { selectedRepository, files } = useSelector(
-    (state: RootState) => state.initialQuery,
-  );
+  const { files } = useSelector((state: RootState) => state.initialQuery);
 
   const [text, setText] = React.useState("");
-  const [suggestion, setSuggestion] = React.useState(
-    getRandomKey(SUGGESTIONS["non-repo"]),
-  );
+  const [suggestion, setSuggestion] = React.useState(() => {
+    const key = getRandomKey(SUGGESTIONS["non-repo"]);
+    return { key, value: SUGGESTIONS["non-repo"][key] };
+  });
   const [inputIsFocused, setInputIsFocused] = React.useState(false);
   const { mutate: createConversation, isPending } = useCreateConversation();
 
@@ -38,25 +37,15 @@ export function TaskForm({ ref }: TaskFormProps) {
     const suggestions = SUGGESTIONS["non-repo"];
     // remove current suggestion to avoid refreshing to the same suggestion
     const suggestionCopy = { ...suggestions };
-    delete suggestionCopy[suggestion];
+    delete suggestionCopy[suggestion.key];
 
     const key = getRandomKey(suggestionCopy);
-    setSuggestion(key);
+    setSuggestion({ key, value: suggestions[key] });
   };
 
   const onClickSuggestion = () => {
-    const suggestions = SUGGESTIONS["non-repo"];
-    const value = suggestions[suggestion];
-    setText(value);
+    setText(suggestion.value);
   };
-
-  const placeholder = React.useMemo(() => {
-    if (selectedRepository) {
-      return `What would you like to change in ${selectedRepository}?`;
-    }
-
-    return "What do you want to build?";
-  }, [selectedRepository]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -81,7 +70,7 @@ export function TaskForm({ ref }: TaskFormProps) {
         <div
           className={cn(
             "border border-neutral-600 px-4 rounded-lg text-[17px] leading-5 w-full transition-colors duration-200",
-            inputIsFocused ? "bg-neutral-600" : "bg-neutral-700",
+            inputIsFocused ? "bg-neutral-600" : "bg-tertiary",
             "hover:border-neutral-500 focus-within:border-neutral-500",
           )}
         >
@@ -105,7 +94,6 @@ export function TaskForm({ ref }: TaskFormProps) {
                   dispatch(addFile(base64));
                 });
               }}
-              placeholder={placeholder}
               value={text}
               maxRows={15}
               showButton={!!text}

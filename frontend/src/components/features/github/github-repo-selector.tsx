@@ -1,11 +1,13 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Autocomplete,
   AutocompleteItem,
   AutocompleteSection,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { useDispatch } from "react-redux";
 import posthog from "posthog-js";
+import { I18nKey } from "#/i18n/declaration";
 import { setSelectedRepository } from "#/state/initial-query-slice";
 import { useConfig } from "#/hooks/query/use-config";
 import { sanitizeQuery } from "#/utils/sanitize-query";
@@ -23,12 +25,13 @@ export function GitHubRepositorySelector({
   userRepositories,
   publicRepositories,
 }: GitHubRepositorySelectorProps) {
+  const { t } = useTranslation();
   const { data: config } = useConfig();
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
 
   const allRepositories: GitHubRepository[] = [
     ...publicRepositories.filter(
-      (repo) => !publicRepositories.find((r) => r.id === repo.id),
+      (repo) => !userRepositories.find((r) => r.id === repo.id),
     ),
     ...userRepositories,
   ];
@@ -49,14 +52,14 @@ export function GitHubRepositorySelector({
     dispatch(setSelectedRepository(null));
   };
 
-  const emptyContent = "No results found.";
+  const emptyContent = t(I18nKey.GITHUB$NO_RESULTS);
 
   return (
     <Autocomplete
       data-testid="github-repo-selector"
       name="repo"
       aria-label="GitHub Repository"
-      placeholder="Select a GitHub project"
+      placeholder={t(I18nKey.LANDING$SELECT_REPO)}
       isVirtualized={false}
       selectedKey={selectedKey}
       inputProps={{
@@ -67,7 +70,7 @@ export function GitHubRepositorySelector({
       }}
       onSelectionChange={(id) => handleRepoSelection(id?.toString() ?? null)}
       onInputChange={onInputChange}
-      clearButtonProps={{ onClick: handleClearSelection }}
+      clearButtonProps={{ onPress: handleClearSelection }}
       listboxProps={{
         emptyContent,
       }}
@@ -86,17 +89,16 @@ export function GitHubRepositorySelector({
               rel="noreferrer noopener"
               onClick={(e) => e.stopPropagation()}
             >
-              Add more repositories...
+              {t(I18nKey.GITHUB$ADD_MORE_REPOS)}
             </a>
           </AutocompleteItem> // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ) as any)}
       {userRepositories.length > 0 && (
-        <AutocompleteSection showDivider title="Your Repos">
+        <AutocompleteSection showDivider title={t(I18nKey.GITHUB$YOUR_REPOS)}>
           {userRepositories.map((repo) => (
             <AutocompleteItem
               data-testid="github-repo-item"
               key={repo.id}
-              value={repo.id}
               className="data-[selected=true]:bg-default-100"
               textValue={repo.full_name}
             >
@@ -106,12 +108,11 @@ export function GitHubRepositorySelector({
         </AutocompleteSection>
       )}
       {publicRepositories.length > 0 && (
-        <AutocompleteSection showDivider title="Public Repos">
+        <AutocompleteSection showDivider title={t(I18nKey.GITHUB$PUBLIC_REPOS)}>
           {publicRepositories.map((repo) => (
             <AutocompleteItem
               data-testid="github-repo-item"
               key={repo.id}
-              value={repo.id}
               className="data-[selected=true]:bg-default-100"
               textValue={repo.full_name}
             >

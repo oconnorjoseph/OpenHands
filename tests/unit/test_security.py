@@ -347,7 +347,11 @@ async def test_unsafe_bash_command(temp_dir: str):
                     type='function',
                     function=Function(
                         name=ActionType.FINISH,
-                        arguments={'outputs': {'content': 'outputs content'}},
+                        arguments={
+                            'outputs': {'content': 'outputs content'},
+                            'task_completed': None,
+                            'final_thought': '',
+                        },
                     ),
                 ),
             ],
@@ -367,6 +371,7 @@ async def test_unsafe_bash_command(temp_dir: str):
                         arguments={
                             'blocking': False,
                             'command': 'ls',
+                            'is_input': False,
                             'hidden': False,
                             'confirmation_state': ActionConfirmationStatus.CONFIRMED,
                         },

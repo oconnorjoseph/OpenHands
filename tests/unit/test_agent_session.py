@@ -26,7 +26,6 @@ def mock_agent():
     # Configure the LLM config
     llm_config.model = 'test-model'
     llm_config.base_url = 'http://test'
-    llm_config.draft_editor = None
     llm_config.max_message_chars = 1000
 
     # Set up the chain of mocks
@@ -45,7 +44,10 @@ async def test_agent_session_start_with_no_state(mock_agent):
 
     # Setup
     file_store = InMemoryFileStore({})
-    session = AgentSession(sid='test-session', file_store=file_store)
+    session = AgentSession(
+        sid='test-session',
+        file_store=file_store,
+    )
 
     # Create a mock runtime and set it up
     mock_runtime = MagicMock(spec=Runtime)
@@ -53,6 +55,7 @@ async def test_agent_session_start_with_no_state(mock_agent):
     # Mock the runtime creation to set up the runtime attribute
     async def mock_create_runtime(*args, **kwargs):
         session.runtime = mock_runtime
+        return True
 
     session._create_runtime = AsyncMock(side_effect=mock_create_runtime)
 
@@ -115,7 +118,10 @@ async def test_agent_session_start_with_restored_state(mock_agent):
 
     # Setup
     file_store = InMemoryFileStore({})
-    session = AgentSession(sid='test-session', file_store=file_store)
+    session = AgentSession(
+        sid='test-session',
+        file_store=file_store,
+    )
 
     # Create a mock runtime and set it up
     mock_runtime = MagicMock(spec=Runtime)
@@ -123,6 +129,7 @@ async def test_agent_session_start_with_restored_state(mock_agent):
     # Mock the runtime creation to set up the runtime attribute
     async def mock_create_runtime(*args, **kwargs):
         session.runtime = mock_runtime
+        return True
 
     session._create_runtime = AsyncMock(side_effect=mock_create_runtime)
 
